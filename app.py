@@ -1,33 +1,44 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# Konfigurācija
-st.set_page_config(page_title="NordTech Dashboard", layout="wide")
-st.title("🛡️ NordTech Stratēģiskais Uzraudzības Panelis")
+# 1. Piespiežam mākonim izmantot pilnu ekrāna platumu
+st.set_page_config(page_title="NordTech Executive Dashboard", layout="wide")
 
+# 2. Datu ielāde
 @st.cache_data
 def load_data():
-    # Svarīgi: fails bez mapes ceļa, jo tas būs tajā pašā mapē
     df = pd.read_csv('enriched_data.csv')
     df['Date'] = pd.to_datetime(df['Date'])
     return df
 
-try:
-    df = load_data()
-    st.sidebar.header("🎯 Vadības Filtri")
-    selected_cats = st.sidebar.multiselect("Kategorijas", options=df['Product_Category'].unique(), default=df['Product_Category'].unique())
-    f_df = df[df['Product_Category'].isin(selected_cats)]
+df = load_data()
 
-    k1, k2, k3 = st.columns(3)
-    k1.metric("Faktiskie Ieņēmumi", f"${f_df['Final_Revenue'].sum():,.0f}")
-    k2.metric("Atgriešanas Rate", f"{(len(f_df[f_df['Status'] == 'Processed']) / len(f_df) * 100):.1f}%")
-    k3.metric("Klientu Signāli", len(f_df))
+# 3. Virsraksts
+st.title("🛡️ NordTech Stratēģiskais Uzraudzības Panelis")
 
-    st.plotly_chart(px.area(f_df.groupby('Date')['Final_Revenue'].sum().reset_index(), x='Date', y='Final_Revenue', title="Peļņas plūsma"), use_container_width=True)
-    
-    if 'Complaint_Category' in f_df.columns:
-        st.plotly_chart(px.pie(f_df, names='Complaint_Category', hole=0.5, title="Sūdzību iemesli"), use_container_width=True)
-except Exception as e:
-    st.error(f"Kļūda: {e}")
+# 4. KPI rinda (Viss vienā līnijā)
+k1, k2, k3, k4 = st.columns(4)
+actual_rev = df['Final_Revenue'].sum()
+k1.metric("💰 Faktiskie Ieņēmumi", f"${actual_rev:,.0f}")
+# ... pievieno pārējos k2, k3, k4 šeit ...
+
+st.markdown("---") # Atdalošā līnija
+
+# 5. Grafiku rinda (Divi blakus)
+col_left, col_right = st.columns(2)
+
+with col_left:
+    st.subheader("Ieņēmumi pa kategorijām")
+    fig_bar = px.bar(df.groupby('Product_Category')['Final_Revenue'].sum().reset_index(), 
+                     x='Final_Revenue', y='Product_Category', orientation='h')
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+with col_right:
+    st.subheader("Sūdzību iemesli")
+    fig_pie = px.pie(df, names='Complaint_Category', hole=0.5)
+    st.plotly_chart(fig_pie, use_container_width=True)
+
+# 6. Tabula apakšā
+st.subheader("📋 Detalizēts reģistrs")
+st.dataframe(df.head(20), use_container_width=True)
